@@ -1,0 +1,91 @@
+library(tidyverse)
+library(rstan)
+library(rstanarm)
+library(bayesplot)
+library(shinystan)
+library(HSAUR3) ##For data
+
+
+##Load data
+data("weightgain", package = "HSAUR3")
+str(weightgain)
+coef(aov(weightgain ~ source * type, data = weightgain))
+
+post1 <- stan_aov(weightgain ~ source * type, data = weightgain, 
+                  prior = R2(location = 0.5), adapt_delta = 0.999,
+                  seed = 12345)
+summary(post1)
+plot(post1)
+
+
+##Another example
+data("womensrole", package = "HSAUR3")
+str(womensrole)
+
+
+womensrole_bglm_1 <- stan_glm(cbind(agree, disagree) ~ education + gender,
+                              data = womensrole,
+                              family = binomial(link = "logit"), 
+                              prior = student_t(df = 7), 
+                              prior_intercept = student_t(df = 7),
+                              cores = 2, seed = 12345)
+womensrole_bglm_1
+ci95 <- posterior_interval(womensrole_bglm_1, prob = 0.95, pars = "education")
+round(ci95, 2)
+
+##Analise PP para DSA
+data_pp <- data.frame(
+  group = c(rep('ATG_evero', 67), rep('BAS_evero', 78), rep('BAS_mmf', 75)),
+  dsa = c(rep('nao', 63), rep('sim', 4), rep('nao', 69), rep('sim', 9), rep('nao', 72), rep('sim', 3)),
+  egf_no_imp = c(rnorm(67, 54.4, 23.5), rnorm(78, 50.2, 21.2), rnorm(75, 65.4, 25.5)),
+  egf_imp = c(rnorm(67, 48.2, 29.3), rnorm(78, 44.8, 23.9), rnorm(75, 53.5, 32.9))
+)
+
+##Linear model
+model01 <- lm(egf_imp ~ group + dsa, data = data_pp)
+summary(model01)
+
+##Using Bayean
+model02 <- stan_lm(egf_imp ~ group + dsa, 
+                   data = data_pp,
+                   prior = R2(location = 0.5),
+                   cores = 2)
+
+summary(model02)
+prior_summary(model02)
+
+ci95 <- posterior_interval(model02, prob = 0.95)
+round(ci95, 2)
+
+##Plots
+posterior <- as.matrix(model02)
+
+mcmc_areas(posterior, prob = 0.95)
+
+model02 %>% 
+  posterior_predict(draws = 500) %>% 
+  ppc_stat_grouped(y = data_pp$egf_imp, 
+                   group = data_pp$group,
+                   stat = 'median')
+
+##Shinystan
+launch_shinystan(model02)
+
+
+##Data wells
+data("wells")
+str(wells)
+wells$dist100 <- wells$dist / 100
+
+t_prior <- student_t(df = 7, location = 0, scale = 2.5, autoscale = FALSE)
+fit1 <- stan_glm(switch ~ dist100, data = wells, 
+                 family = binomial(link = "logit"), 
+                 prior = t_prior, prior_intercept = t_prior,  
+                 cores = 2, seed = 12345)
+
+round(posterior_interval(fit1, prob = 0.5), 2)
+
+##Plots
+posterior <- as.matrix(fit1)
+
+mcmc_areas(posterior, prob = 0.95)
