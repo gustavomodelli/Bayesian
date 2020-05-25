@@ -1,0 +1,42 @@
+library(tidyverse)
+library(rstanarm)
+library(bayesplot)
+library(shinystan)
+
+##data
+data(kidiq)
+str(kidiq)
+
+kidiq$mom_hs <- as.factor(kidiq$mom_hs)
+##Plots
+ggplot(kidiq, aes(kid_score))+
+  geom_histogram(fill = 'darkred')
+
+ggplot(kidiq, aes(mom_iq, kid_score, color = mom_hs))+
+  geom_point()
+
+ggplot(kidiq, aes(mom_age, kid_score))+
+  geom_point()
+
+ggplot(kidiq, aes(mom_hs, kid_score, fill = mom_hs))+
+  geom_boxplot()
+
+##Fit a tradictional model
+model01 <- lm(kid_score ~ . , data = kidiq)
+summary(model01)
+
+
+##Based on Baysean approach
+model_baysean <- stan_glm(kid_score ~ . ,
+                     data = kidiq,
+                     family = gaussian(),
+                     cores = 2)
+
+summary(model_baysean)
+prior_summary(model_baysean)
+
+mcmc_areas(model_baysean)
+mcmc_intervals(model_baysean)
+
+posterior_interval(model_baysean)
+launch_shinystan(model_baysean)
