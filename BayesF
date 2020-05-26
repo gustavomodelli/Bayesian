@@ -1,0 +1,76 @@
+library(tidyverse)
+library(rstanarm)
+library(bayesplot)
+library(bayestestR)
+
+##Examples
+data("chickwts")
+str(chickwts)
+
+
+data <- chickwts %>%
+  filter(feed %in% c("meatmeal", "sunflower"))
+
+model <- stan_glm(weight ~ feed, data=data)
+
+describe_posterior(model)
+
+plot <- model %>% as.data.frame()
+hist(plot$feedsunflower)
+
+##Plot CI
+HDI <- posterior_interval(model, prob = 0.9)
+HDI
+
+##similar funcion
+hdi(model, ci = .90)
+
+ggplot(plot, aes(feedsunflower))+
+  geom_density(fill = 'darkred')+
+  geom_segment(aes(x = 10.03, xend = 89.98, y = 0.002, yend=0.002),
+               size = 2)
+
+##Rope mmake probability inside values (curve)
+rope(plot$feedsunflower, range = c(10, 90))
+rope(plot$feedsunflower, range = c(-20,20))
+
+baysF <- bayesfactor_parameters(model, prior = NULL)
+plot(baysF)
+
+##Using data from sleep
+data("sleep")
+str(sleep)
+
+ggplot(sleep, aes(group, extra, fill = group))+
+  geom_boxplot()
+
+##Linear model
+model1 <- lm(extra ~ group, data = sleep)
+summary(model1)
+plot(model1)
+
+##Fit a Baysean Approach
+model2 <- stan_glm(extra ~ group, data = sleep)
+summary(model2)
+prior_summary(model2)
+
+hdi(model2)
+
+mcmc_dens(model2)
+
+model_up <- model2 %>% as.data.frame()
+
+ggplot(model_up, aes(group2))+
+  geom_density(fill = 'blue')
+
+##Check all parameters
+describe_posterior(model2)
+describe_prior(model2)
+
+sleep_F <- bayesfactor_parameters(model2, prior = NULL)
+plot(sleep_F)
+
+##3 possibilitys equivalent p: ROPE; p-direction and Bayes F
+plot(p_direction(model2))
+plot(rope(model2))
+plot(sleep_F)
